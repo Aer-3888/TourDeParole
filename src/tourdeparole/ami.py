@@ -2,11 +2,14 @@
 
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
 from pyannote.core import Annotation, Timeline
 from pyannote.database.util import load_rttm, load_uem
 
 DATA_DIR = Path("data")
 SPLITS = ("train", "dev", "test")
+SAMPLE_RATE = 16000
 
 
 def setup_dir(data_dir: Path = DATA_DIR) -> Path:
@@ -24,6 +27,13 @@ def meetings(split: str, mini: bool = False, data_dir: Path = DATA_DIR) -> list[
 
 def audio_path(uri: str, data_dir: Path = DATA_DIR) -> Path:
     return data_dir / "amicorpus" / uri / "audio" / f"{uri}.Mix-Headset.wav"
+
+
+def load_audio(uri: str, data_dir: Path = DATA_DIR) -> np.ndarray:
+    """Mono float32 waveform at 16 kHz, the native format of the Mix-Headset files."""
+    audio, sample_rate = sf.read(audio_path(uri, data_dir), dtype="float32")
+    assert sample_rate == SAMPLE_RATE and audio.ndim == 1
+    return audio
 
 
 def reference(uri: str, split: str, data_dir: Path = DATA_DIR) -> Annotation:

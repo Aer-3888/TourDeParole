@@ -37,3 +37,43 @@ python -m tourdeparole.references --splits test dev
 ```
 
 Each meeting is written to `data/references/<meeting>.json` in SegLST format (the JSON format used by meeteval). Punctuation tokens are dropped, and disfluencies and truncated words are kept as transcribed.
+
+## Transcription
+
+Whisper large-v3 through faster-whisper (float16 on GPU), English, beam size 5, word timestamps and the built-in Silero VAD filter, on the full meeting audio:
+
+```
+python -m tourdeparole.transcribe --split test
+```
+
+Each meeting is written to `outputs/whisper-large-v3/<meeting>.json` with segments, words and timestamps.
+
+## Scoring
+
+### DER
+
+Diarization error rate is computed with pyannote.metrics over the full UEM of each meeting and accumulated over the split (total error time divided by total reference speech time). The three settings follow the naming of Landini et al. (VBx, 2022), who released this AMI setup:
+
+| Setting   | Collar          | Overlapped speech |
+|-----------|-----------------|-------------------|
+| full      | none            | scored            |
+| fair      | 0.25 s per side | scored            |
+| forgiving | 0.25 s per side | not scored        |
+
+The full setting is the one used in the pyannote benchmarks and is the main number in this project. pyannote.metrics takes the total collar width, so 0.25 s per side is `collar=0.5`.
+
+```
+python -m tourdeparole.der --split test --hyp outputs/<system>
+```
+
+Results go to `results/der_<system>_<split>.csv` with missed detection, false alarm and confusion per meeting.
+
+### WER
+
+Word error rate ignores speakers. The reference is every utterance of the meeting concatenated in order of start time, the hypothesis is the Whisper output in order, and both go through the Whisper English text normalizer (lowercase, no punctuation, filler words such as "um" and "hmm" removed, standard spellings). Errors are counted with jiwer and accumulated over the split.
+
+Concatenating speakers in time order penalizes overlapped speech, where the order of words from two speakers is ambiguous. The speaker-attributed metric cpWER comes later.
+
+```
+python -m tourdeparole.wer --split test --hyp outputs/whisper-large-v3
+```
