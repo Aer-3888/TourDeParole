@@ -7,7 +7,10 @@ name = "tourdeparole"
 version = "0.1.0"
 description = "Speaker-attributed meeting transcription evaluated on the AMI Meeting Corpus"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "pyannote.core==6.1.0",
+    "pyannote.database==6.1.1",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
