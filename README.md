@@ -48,6 +48,16 @@ python -m tourdeparole.transcribe --split test
 
 Each meeting is written to `outputs/whisper-large-v3/<meeting>.json` with segments, words and timestamps.
 
+## Diarization with pyannote
+
+The pretrained [pyannote/speaker-diarization-community-1](https://hf.co/pyannote/speaker-diarization-community-1) pipeline (pyannote.audio 4.0.7, default hyperparameters, number of speakers not given). It needs a Hugging Face token with the model conditions accepted (`hf auth login`).
+
+```
+python -m tourdeparole.diarize_pyannote --split test
+```
+
+RTTMs are written to `outputs/pyannote-community-1/`. The `exclusive/` subfolder holds the variant without overlapping turns, which pyannote provides for alignment with transcripts. pyannote usage telemetry is disabled in the script.
+
 ## Scoring
 
 ### DER
