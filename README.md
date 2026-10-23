@@ -87,3 +87,40 @@ Concatenating speakers in time order penalizes overlapped speech, where the orde
 ```
 python -m tourdeparole.wer --split test --hyp outputs/whisper-large-v3
 ```
+
+## Results
+
+AMI test set, 16 meetings, 9.06 h, Mix-Headset audio. Per-meeting numbers are in `results/`.
+
+### Diarization
+
+| System | Setting | DER | Missed | False alarm | Confusion |
+|--------|---------|-----|--------|-------------|-----------|
+| pyannote community-1 | full      | 17.05% | 9.52% | 3.58% | 3.95% |
+| pyannote community-1 | fair      | 10.76% | 6.78% | 1.76% | 2.22% |
+| pyannote community-1 | forgiving |  6.43% | 3.07% | 2.14% | 1.22% |
+
+The full DER matches the 17.0% reported on the model card for AMI Mix-Headset, which validates the data and scoring setup. Missed speech is the largest error, and 71% of it (2075 of 2925 s) falls in overlapped regions, where the pipeline finds fewer speakers than are talking. The predicted number of speakers is correct in 12 of 16 meetings. In the other 4, one extra speaker is predicted, with 10 to 76 s of speech.
+
+### Transcription
+
+| System | WER | Substitutions | Deletions | Insertions |
+|--------|-----|---------------|-----------|------------|
+| Whisper large-v3 | 27.57% | 5.65% | 18.88% | 3.05% |
+
+Deletions account for two thirds of the errors. Across meetings, WER follows the share of overlapped speech closely (Pearson r = 0.97 over 16 meetings): the four EN2002 meetings have 24 to 30% overlapped speech and 34 to 41% WER, the others have 4 to 16% and 16 to 31%. The EN2002 meetings are also the only unscripted ones in the test set, so meeting type and overlap are confounded here.
+
+### Runtime
+
+On an RTX 4060 Laptop GPU (8 GB): Whisper large-v3 took 100 min for the 9.06 h of audio, pyannote community-1 took 19 min.
+
+## Reproduction
+
+```
+python -m tourdeparole.download_ami --splits test dev
+python -m tourdeparole.references --splits test dev
+python -m tourdeparole.transcribe --split test
+python -m tourdeparole.diarize_pyannote --split test
+python -m tourdeparole.wer --split test --hyp outputs/whisper-large-v3
+python -m tourdeparole.der --split test --hyp outputs/pyannote-community-1
+```
