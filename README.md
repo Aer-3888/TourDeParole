@@ -28,7 +28,11 @@ This writes the setup, the AMI manual annotations 1.6.2 and the audio to `data/`
 | dev   | 18       | 9.67 h   | 4                    | 14.1% |
 | test  | 16       | 9.06 h   | 3 or 4               | 14.6% |
 
-Overlapped speech is the share of speech time where at least two people talk at once, computed from the reference RTTMs.
+Overlapped speech is the share of speech time where at least two people talk at once, computed from the reference RTTMs:
+
+```
+python -m tourdeparole.analysis data --split test
+```
 
 Reference transcripts come from the word-level manual annotations, grouped into the official AMI segments and attributed to the same speaker names as the RTTMs:
 
@@ -88,6 +92,17 @@ Concatenating speakers in time order penalizes overlapped speech, where the orde
 python -m tourdeparole.wer --split test --hyp outputs/whisper-large-v3
 ```
 
+### Error analysis
+
+The diarization errors are split between overlapped speech and the rest of each meeting, and the predicted number of speakers is compared with the reference. Each reference turn is also checked against the hypothesis after the optimal speaker mapping, to see how much of it goes to the right speaker depending on its length.
+
+```
+python -m tourdeparole.analysis diarization --split test --hyp outputs/<system>
+python -m tourdeparole.analysis transcription --split test --wer results/wer_<system>_test.csv
+```
+
+Results go to `results/regions_<system>_<split>.csv` (error seconds per meeting) and `results/turns_<system>_<split>.csv`.
+
 ## Results
 
 AMI test set, 16 meetings, 9.06 h, Mix-Headset audio. Per-meeting numbers are in `results/`.
@@ -123,4 +138,7 @@ python -m tourdeparole.transcribe --split test
 python -m tourdeparole.diarize_pyannote --split test
 python -m tourdeparole.wer --split test --hyp outputs/whisper-large-v3
 python -m tourdeparole.der --split test --hyp outputs/pyannote-community-1
+python -m tourdeparole.analysis data --split test
+python -m tourdeparole.analysis diarization --split test --hyp outputs/pyannote-community-1
+python -m tourdeparole.analysis transcription --split test --wer results/wer_whisper-large-v3_test.csv
 ```
