@@ -88,19 +88,21 @@ def region_errors(split: str, mini: bool, hyp_dir: Path, data_dir: Path) -> list
 
 
 def turn_errors(split: str, mini: bool, hyp_dir: Path, data_dir: Path) -> list[dict]:
-    """Share of each reference turn given to the right speaker, missed, or given to another speaker, by turn length."""
+    """Share of reference turns overlapped, given to the right speaker, missed, or given to another speaker, by length."""
     metric = DiarizationErrorRate()
-    totals = {bounds: dict.fromkeys(["turns", "seconds", "correct", "missed"], 0.0) for bounds in TURN_BINS}
+    totals = {bounds: dict.fromkeys(["turns", "seconds", "overlapped", "correct", "missed"], 0.0) for bounds in TURN_BINS}
     for uri in ami.meetings(split, mini, data_dir):
         reference, uem = ami.reference(uri, split, data_dir), ami.uem(uri, split, data_dir)
         hypothesis = load_hypothesis(hyp_dir, uri)
         hypothesis = hypothesis.rename_labels(metric.optimal_mapping(reference, hypothesis, uem=uem))
         detected = hypothesis.get_timeline().support()
+        overlap = reference.get_overlap()
         for turn, _, speaker in reference.itertracks(yield_label=True):
             bounds = next(b for b in TURN_BINS if b[0] <= turn.duration < b[1])
             window = Timeline([turn])
             totals[bounds]["turns"] += 1
             totals[bounds]["seconds"] += turn.duration
+            totals[bounds]["overlapped"] += overlap.crop(window).duration()
             totals[bounds]["correct"] += hypothesis.label_timeline(speaker).crop(window).duration()
             totals[bounds]["missed"] += turn.duration - detected.crop(window).duration()
 
@@ -111,6 +113,7 @@ def turn_errors(split: str, mini: bool, hyp_dir: Path, data_dir: Path) -> list[d
                 "turn_length": f"{low:g}-{high:g} s" if high != float("inf") else f">{low:g} s",
                 "turns": int(t["turns"]),
                 "seconds": round(t["seconds"], 2),
+                "overlapped": round(100 * t["overlapped"] / t["seconds"], 2),
                 "correct": round(100 * t["correct"] / t["seconds"], 2),
                 "missed": round(100 * t["missed"] / t["seconds"], 2),
                 "other_speaker": round(100 * (t["seconds"] - t["correct"] - t["missed"]) / t["seconds"], 2),
@@ -160,7 +163,7 @@ def main() -> None:
         write_csv(args.results_dir / f"turns_{args.hyp.name}_{suffix(args)}.csv", rows)
         for r in rows:
             print(
-                f"{r['turn_length']:>7}  {r['turns']:5d} turns  correct {r['correct']:5.1f}%  "
+                f"{r['turn_length']:>7}  {r['turns']:5d} turns  overlapped {r['overlapped']:5.1f}%  correct {r['correct']:5.1f}%  "
                 f"missed {r['missed']:5.1f}%  other speaker {r['other_speaker']:5.1f}%"
             )
 

@@ -83,6 +83,32 @@ Speech regions are written as RTTMs to `outputs/vad-silero/`, and scores to `res
 | dev   | 3.83% | 5.93% |
 | test  | 5.71% | 4.26% |
 
+### Speaker embeddings
+
+Each speech region is cut into 1.5 s windows every 0.75 s, the last window ending with the region. Regions shorter than 1.5 s form a single window, and regions shorter than 0.25 s get none and later take the speaker of the nearest window. Each window is mapped to a 192-dimensional embedding by the ECAPA-TDNN model [speechbrain/spkrec-ecapa-voxceleb](https://hf.co/speechbrain/spkrec-ecapa-voxceleb), trained on VoxCeleb for speaker verification: windows from the same speaker should have a high cosine similarity.
+
+```
+python -m tourdeparole.embed --split test --vad outputs/vad-silero
+```
+
+Embeddings, window boundaries and speech regions are written per meeting to `outputs/ecapa/<vad>/<meeting>.npz`. The 18.7 h of dev and test audio take about 3 min per VAD on the GPU.
+
+### Clustering
+
+Agglomerative hierarchical clustering (AHC) of the windows of each meeting with average linkage on cosine distances: every window starts as its own cluster, and the two closest clusters are merged until the closest pair is further apart than a threshold, which sets the number of speakers. The embeddings are centered on their meeting mean first. Without centering they share a large common component, and on dev with the reference number of speakers most meetings end up as one large cluster plus a few outlier windows (28.6% confusion against 7.1% with centering, oracle speech).
+
+Each window then gives its speaker to the part of its speech region closest to its center, so speaker changes fall halfway between two window centers.
+
+The threshold is the only parameter tuned for clustering. It was swept from 0.80 to 1.20 by steps of 0.02 on the dev set, scoring DER in the full setting (`results/ahc_tuning_<vad>_dev.csv`). Both speech detections give the lowest DER at 0.98, with the number of speakers right in 10 of 18 dev meetings with oracle speech and 8 of 18 with Silero. Only confusion depends on the threshold, and it rises faster above the best value than below it: with Silero, DER is 31.41% at 0.90, where speakers are split into extra clusters, and 44.06% at 1.06, where different speakers start to be merged.
+
+```
+python -m tourdeparole.cluster --split dev --embeddings outputs/ecapa/vad-silero --tune
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-silero
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-silero --known-speakers
+```
+
+RTTMs are written to `outputs/ecapa-ahc-<vad>/` and scored with `tourdeparole.der`. With `--known-speakers` the tree is cut at the reference number of speakers instead of the threshold, which separates speaker counting errors from embedding errors.
+
 ## Scoring
 
 ### DER

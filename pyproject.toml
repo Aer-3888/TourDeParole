@@ -14,7 +14,9 @@ dependencies = [
     "pyannote.core==6.1.0",
     "pyannote.database==6.1.1",
     "pyannote.metrics==4.2.0",
+    "scipy==1.18.1",
     "soundfile==0.14.0",
+    "speechbrain==1.1.2",
     "torch>=2.8",
     "whisper-normalizer==0.1.15",
 ]
