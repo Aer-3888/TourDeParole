@@ -62,6 +62,27 @@ python -m tourdeparole.diarize_pyannote --split test
 
 RTTMs are written to `outputs/pyannote-community-1/`. The `exclusive/` subfolder holds the variant without overlapping turns, which pyannote provides for alignment with transcripts. pyannote usage telemetry is disabled in the script.
 
+## Clustering baseline
+
+A diarization system built from separate parts: speech detection, speaker embeddings on short windows, then clustering of the windows into speakers. It assigns a single speaker to each moment, so it cannot handle overlapped speech by design.
+
+### Speech detection
+
+[Silero VAD](https://github.com/snakers4/silero-vad) as bundled in faster-whisper, with the Silero defaults for minimum speech (250 ms) and minimum silence (100 ms). The speech threshold and the padding added around each region were chosen on the dev set by minimizing missed plus false alarm speech over a grid of 25 settings (`results/vad_tuning_dev.csv`): threshold 0.3 and 200 ms of padding.
+
+```
+python -m tourdeparole.vad --split dev --tune
+python -m tourdeparole.vad --split test --method silero
+python -m tourdeparole.vad --split test --method oracle
+```
+
+Speech regions are written as RTTMs to `outputs/vad-silero/`, and scores to `results/vad_silero_<split>.csv`. The oracle method takes the speech regions from the reference instead, which isolates the errors of the embeddings and the clustering.
+
+| Split | Missed speech | False alarm |
+|-------|---------------|-------------|
+| dev   | 3.83% | 5.93% |
+| test  | 5.71% | 4.26% |
+
 ## Scoring
 
 ### DER
