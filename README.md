@@ -156,13 +156,40 @@ AMI test set, 16 meetings, 9.06 h, Mix-Headset audio. Per-meeting numbers are in
 
 ### Diarization
 
-| System | Setting | DER | Missed | False alarm | Confusion |
-|--------|---------|-----|--------|-------------|-----------|
-| pyannote community-1 | full      | 17.05% | 9.52% | 3.58% | 3.95% |
-| pyannote community-1 | fair      | 10.76% | 6.78% | 1.76% | 2.22% |
-| pyannote community-1 | forgiving |  6.43% | 3.07% | 2.14% | 1.22% |
+Full setting (no collar, overlapped speech scored):
 
-The full DER matches the 17.0% reported on the model card for AMI Mix-Headset, which validates the data and scoring setup. Missed speech is the largest error, and 71% of it (2075 of 2925 s) falls in overlapped regions, where the pipeline finds fewer speakers than are talking. The predicted number of speakers is correct in 12 of 16 meetings. In the other 4, one extra speaker is predicted, with 10 to 76 s of speech.
+| System | Speech detection | DER | Missed | False alarm | Confusion |
+|--------|------------------|-----|--------|-------------|-----------|
+| pyannote community-1 | pyannote | 17.05% | 9.52% | 3.58% | 3.95% |
+| ECAPA-TDNN + AHC | Silero | 30.42% | 19.43% | 3.64% | 7.36% |
+| ECAPA-TDNN + AHC | oracle | 23.50% | 14.55% | 0.00% | 8.95% |
+| ECAPA-TDNN + AHC, known number of speakers | Silero | 30.94% | 19.43% | 3.64% | 7.87% |
+| ECAPA-TDNN + AHC, known number of speakers | oracle | 22.97% | 14.55% | 0.00% | 8.42% |
+
+DER in the three settings:
+
+| System | Speech detection | Full | Fair | Forgiving |
+|--------|------------------|------|------|-----------|
+| pyannote community-1 | pyannote | 17.05% | 10.76% | 6.43% |
+| ECAPA-TDNN + AHC | Silero | 30.42% | 22.04% | 13.93% |
+| ECAPA-TDNN + AHC | oracle | 23.50% | 17.44% | 8.15% |
+
+The pyannote DER matches the 17.0% reported on the model card for AMI Mix-Headset, which validates the data and scoring setup. Missed speech is its largest error, and 71% of it (2075 of 2925 s) falls in overlapped regions, where the pipeline finds fewer speakers than are talking. The predicted number of speakers is correct in 12 of 16 meetings. In the other 4, one extra speaker is predicted, with 10 to 76 s of speech.
+
+The clustering baseline has 13.4 points more DER than pyannote, and missed speech is most of the gap. The baseline gives one speaker to each moment, so the second speaker of every overlap is lost: 4520 of its 5969 s of missed speech are in overlapped regions, against 2075 s for pyannote, which detects part of the overlapped speech. With oracle speech detection, the missed speech is exactly the overlapped speech that a single speaker cannot cover (14.55%), and only confusion is left to compare: 8.95% against 3.95% for pyannote. Silero adds 1449 s of missed speech outside overlaps and about as much false alarm as pyannote.
+
+Giving the reference number of speakers does not help (30.94% against 30.42% with Silero), although the threshold finds the right number in only 9 of 16 meetings. The confusion comes from the embeddings rather than from counting speakers.
+
+Share of reference turn time given to the right speaker, by turn length, with the share of that time where another speaker talks too:
+
+| Turn length | Turns | Overlapped | pyannote | ECAPA-TDNN + AHC, Silero | ECAPA-TDNN + AHC, oracle |
+|-------------|-------|------------|----------|--------------------------|--------------------------|
+| < 1 s  | 3247 | 69.6% | 40.7% | 18.5% | 22.6% |
+| 1-2 s  | 1080 | 56.8% | 59.5% | 46.5% | 50.1% |
+| 2-5 s  | 1376 | 42.6% | 76.6% | 63.5% | 66.1% |
+| > 5 s  | 1790 | 19.4% | 93.1% | 80.2% | 83.6% |
+
+Short turns are mostly overlapped speech: 70% of the time in turns under 1 s overlaps another speaker, typically a backchannel such as "yeah" over the current speaker. Both systems lose most of these turns to the speaker they overlap, and the baseline more so. A 1.5 s window is longer than half of the reference turns (median 1.38 s), so the embedding of a short turn mostly describes the speech around it. On turns over 5 s, the baseline still gives 16.4% of the time to another speaker with oracle speech, against 4.3% for pyannote. Part of it is the 19.4% of overlapped time in these turns, where a single speaker per moment can only be right for one of the two.
 
 ### Transcription
 
@@ -174,7 +201,7 @@ Deletions account for two thirds of the errors. Across meetings, WER follows the
 
 ### Runtime
 
-On an RTX 4060 Laptop GPU (8 GB): Whisper large-v3 took 100 min for the 9.06 h of audio, pyannote community-1 took 19 min.
+On an RTX 4060 Laptop GPU (8 GB): Whisper large-v3 took 100 min for the 9.06 h of audio, pyannote community-1 took 19 min. The clustering baseline took under 2 min: 55 s for Silero on the CPU, 58 s for the embeddings and 3 s for the clustering, model loading excluded.
 
 ## Reproduction
 
@@ -188,4 +215,30 @@ python -m tourdeparole.der --split test --hyp outputs/pyannote-community-1
 python -m tourdeparole.analysis data --split test
 python -m tourdeparole.analysis diarization --split test --hyp outputs/pyannote-community-1
 python -m tourdeparole.analysis transcription --split test --wer results/wer_whisper-large-v3_test.csv
+```
+
+Clustering baseline, tuned on dev and scored on test:
+
+```
+python -m tourdeparole.vad --split dev --tune
+python -m tourdeparole.vad --split dev --method silero
+python -m tourdeparole.vad --split dev --method oracle
+python -m tourdeparole.vad --split test --method silero
+python -m tourdeparole.vad --split test --method oracle
+python -m tourdeparole.embed --split dev --vad outputs/vad-silero
+python -m tourdeparole.embed --split dev --vad outputs/vad-oracle
+python -m tourdeparole.embed --split test --vad outputs/vad-silero
+python -m tourdeparole.embed --split test --vad outputs/vad-oracle
+python -m tourdeparole.cluster --split dev --embeddings outputs/ecapa/vad-silero --tune
+python -m tourdeparole.cluster --split dev --embeddings outputs/ecapa/vad-oracle --tune
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-silero
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-oracle
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-silero --known-speakers
+python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-oracle --known-speakers
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-silero
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-silero-known-speakers
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle-known-speakers
+python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-silero
+python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-oracle
 ```
