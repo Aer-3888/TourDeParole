@@ -203,6 +203,10 @@ Full setting (no collar, overlapped speech scored):
 | pyannote community-1 | pyannote | 17.05% | 9.52% | 3.58% | 3.95% |
 | ECAPA-TDNN + AHC | Silero | 30.42% | 19.43% | 3.64% | 7.36% |
 | ECAPA-TDNN + AHC | oracle | 23.50% | 14.55% | 0.00% | 8.95% |
+| ECAPA-TDNN + AHC + overlap handling | Silero | 26.13% | 12.34% | 4.48% | 9.32% |
+| ECAPA-TDNN + AHC + overlap handling | oracle | 19.62% | 7.45% | 0.83% | 11.34% |
+| ECAPA-TDNN + AHC + reference overlap | Silero | 22.22% | 7.14% | 3.64% | 11.45% |
+| ECAPA-TDNN + AHC + reference overlap | oracle | 15.87% | 2.09% | 0.00% | 13.78% |
 | ECAPA-TDNN + AHC, known number of speakers | Silero | 30.94% | 19.43% | 3.64% | 7.87% |
 | ECAPA-TDNN + AHC, known number of speakers | oracle | 22.97% | 14.55% | 0.00% | 8.42% |
 
@@ -213,6 +217,8 @@ DER in the three settings:
 | pyannote community-1 | pyannote | 17.05% | 10.76% | 6.43% |
 | ECAPA-TDNN + AHC | Silero | 30.42% | 22.04% | 13.93% |
 | ECAPA-TDNN + AHC | oracle | 23.50% | 17.44% | 8.15% |
+| ECAPA-TDNN + AHC + overlap handling | Silero | 26.13% | 18.82% | 14.30% |
+| ECAPA-TDNN + AHC + overlap handling | oracle | 19.62% | 14.52% | 8.53% |
 
 The pyannote DER matches the 17.0% reported on the model card for AMI Mix-Headset, which validates the data and scoring setup. Missed speech is its largest error, and 71% of it (2075 of 2925 s) falls in overlapped regions, where the pipeline finds fewer speakers than are talking. The predicted number of speakers is correct in 12 of 16 meetings. In the other 4, one extra speaker is predicted, with 10 to 76 s of speech.
 
@@ -220,16 +226,18 @@ The clustering baseline has 13.4 points more DER than pyannote, and missed speec
 
 Giving the reference number of speakers does not help (30.94% against 30.42% with Silero), although the threshold finds the right number in only 9 of 16 meetings. The confusion comes from the embeddings rather than from counting speakers.
 
+Overlap handling lowers the DER of the baseline by 4.3 points with Silero (26.13%) and 3.9 points with oracle speech (19.62%), as on dev (4.3 and 4.2). Missed speech in overlapped regions falls from 4520 to 2341 s. The second speaker is not always the right one, so confusion rises from 7.36% to 9.32%, and with the reference overlapped speech confusion becomes the largest error left (11.45%). The detector is conservative on test, with 89.4% precision and 57.0% recall at the threshold chosen on dev, and perfect overlap detection would bring the system to 22.22%. In the forgiving setting, where overlapped speech is not scored, DER rises slightly (13.93% to 14.30%) because of second speakers added in false overlap detections. The gap with pyannote goes from 13.4 to 9.1 points.
+
 Share of reference turn time given to the right speaker, by turn length, with the share of that time where another speaker talks too:
 
-| Turn length | Turns | Overlapped | pyannote | ECAPA-TDNN + AHC, Silero | ECAPA-TDNN + AHC, oracle |
-|-------------|-------|------------|----------|--------------------------|--------------------------|
-| < 1 s  | 3247 | 69.6% | 40.7% | 18.5% | 22.6% |
-| 1-2 s  | 1080 | 56.8% | 59.5% | 46.5% | 50.1% |
-| 2-5 s  | 1376 | 42.6% | 76.6% | 63.5% | 66.1% |
-| > 5 s  | 1790 | 19.4% | 93.1% | 80.2% | 83.6% |
+| Turn length | Turns | Overlapped | pyannote | ECAPA-TDNN + AHC, Silero | ECAPA-TDNN + AHC, oracle | + overlap handling, Silero |
+|-------------|-------|------------|----------|--------------------------|--------------------------|----------------------------|
+| < 1 s  | 3247 | 69.6% | 40.7% | 18.5% | 22.6% | 32.1% |
+| 1-2 s  | 1080 | 56.8% | 59.5% | 46.5% | 50.1% | 56.9% |
+| 2-5 s  | 1376 | 42.6% | 76.6% | 63.5% | 66.1% | 71.5% |
+| > 5 s  | 1790 | 19.4% | 93.1% | 80.2% | 83.6% | 84.0% |
 
-Short turns are mostly overlapped speech: 70% of the time in turns under 1 s overlaps another speaker, typically a backchannel such as "yeah" over the current speaker. Both systems lose most of these turns to the speaker they overlap, and the baseline more so. A 1.5 s window is longer than half of the reference turns (median 1.38 s), so the embedding of a short turn mostly describes the speech around it. On turns over 5 s, the baseline still gives 16.4% of the time to another speaker with oracle speech, against 4.3% for pyannote. Part of it is the 19.4% of overlapped time in these turns, where a single speaker per moment can only be right for one of the two.
+Short turns are mostly overlapped speech: 70% of the time in turns under 1 s overlaps another speaker, typically a backchannel such as "yeah" over the current speaker. Both systems lose most of these turns to the speaker they overlap, and the baseline more so. A 1.5 s window is longer than half of the reference turns (median 1.38 s), so the embedding of a short turn mostly describes the speech around it. On turns over 5 s, the baseline still gives 16.4% of the time to another speaker with oracle speech, against 4.3% for pyannote. Part of it is the 19.4% of overlapped time in these turns, where a single speaker per moment can only be right for one of the two. Overlap handling helps the short turns most: the share of time given to the right speaker in turns under 1 s goes from 18.5% to 32.1%.
 
 ### Transcription
 
@@ -241,7 +249,7 @@ Deletions account for two thirds of the errors. Across meetings, WER follows the
 
 ### Runtime
 
-On an RTX 4060 Laptop GPU (8 GB): Whisper large-v3 took 100 min for the 9.06 h of audio, pyannote community-1 took 19 min. The clustering baseline took under 2 min: 55 s for Silero on the CPU, 58 s for the embeddings and 3 s for the clustering, model loading excluded.
+On an RTX 4060 Laptop GPU (8 GB): Whisper large-v3 took 100 min for the 9.06 h of audio, pyannote community-1 took 19 min. The clustering baseline took under 2 min: 55 s for Silero on the CPU, 58 s for the embeddings and 3 s for the clustering, model loading excluded. Overlap detection took 2 min for the test set, model loading included.
 
 ## Reproduction
 
@@ -281,4 +289,25 @@ python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-silero-known-spe
 python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle-known-speakers
 python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-silero
 python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-oracle
+```
+
+Overlap handling, on top of the clustering baseline:
+
+```
+python -m tourdeparole.overlap detect --split dev
+python -m tourdeparole.overlap detect --split test
+python -m tourdeparole.cluster --split dev --embeddings outputs/ecapa/vad-silero
+python -m tourdeparole.cluster --split dev --embeddings outputs/ecapa/vad-oracle
+python -m tourdeparole.overlap tune --split dev --hyp outputs/ecapa-ahc-silero --embeddings outputs/ecapa/vad-silero
+python -m tourdeparole.overlap tune --split dev --hyp outputs/ecapa-ahc-oracle --embeddings outputs/ecapa/vad-oracle
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-silero
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-oracle
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-silero --reference
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-oracle --reference
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-silero-overlap
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle-overlap
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-silero-reference-overlap
+python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle-reference-overlap
+python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-silero-overlap
+python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-oracle-overlap
 ```
