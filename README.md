@@ -109,6 +109,20 @@ python -m tourdeparole.cluster --split test --embeddings outputs/ecapa/vad-siler
 
 RTTMs are written to `outputs/ecapa-ahc-<vad>/` and scored with `tourdeparole.der`. With `--known-speakers` the tree is cut at the reference number of speakers instead of the threshold, which separates speaker counting errors from embedding errors.
 
+## Overlap handling
+
+The clustering baseline misses the second speaker of every overlap. This step detects overlapped speech and adds a second speaker there, following the approach of Bullock et al. (ICASSP 2020).
+
+### Overlapped speech detection
+
+The segmentation model of pyannote community-1 classifies each frame of a 10 s chunk into no speaker, one of three local speakers, or a pair of them. The probability of overlap is the sum of the three pair classes, averaged over chunks sliding by 1 s, and frames above a threshold are marked as overlapped. Only this model is reused from pyannote, not its clustering.
+
+```
+python -m tourdeparole.overlap detect --split test
+```
+
+Scores are cached per meeting in `outputs/overlap-scores/`, and precision and recall against the reference overlapped speech go to `results/overlap_detection_<split>.csv`.
+
 ## Scoring
 
 ### DER
