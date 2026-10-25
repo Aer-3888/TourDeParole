@@ -4,14 +4,13 @@
 """
 
 import argparse
-import csv
 import json
 from pathlib import Path
 
 import jiwer
 from whisper_normalizer.english import EnglishTextNormalizer
 
-from tourdeparole import ami, references
+from tourdeparole import ami, references, tables
 
 normalize = EnglishTextNormalizer()
 
@@ -54,12 +53,8 @@ def main() -> None:
         errors = r["substitutions"] + r["deletions"] + r["insertions"]
         r["wer"] = round(100 * errors / r["ref_words"], 2)
 
-    args.results_dir.mkdir(parents=True, exist_ok=True)
     name = f"wer_{args.hyp.name}_{args.split}{'_mini' if args.mini else ''}.csv"
-    with open(args.results_dir / name, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
+    tables.write_csv(args.results_dir / name, rows)
     for r in rows:
         print(f"{r['meeting']:>8}  WER {r['wer']:6.2f}%  ({r['ref_words']} words)")
 

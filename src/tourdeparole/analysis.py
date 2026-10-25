@@ -14,19 +14,11 @@ from pyannote.core import Annotation, Timeline
 from pyannote.database.util import load_rttm
 from pyannote.metrics.diarization import DiarizationErrorRate
 
-from tourdeparole import ami
+from tourdeparole import ami, tables
 
 COMPONENTS = ["missed detection", "false alarm", "confusion"]
 TURN_BINS = [(0.0, 1.0), (1.0, 2.0), (2.0, 5.0), (5.0, float("inf"))]
 SPEAKER_COUNTS = {"speakers", "ref_speakers", "hyp_speakers"}
-
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def total_row(rows: list[dict]) -> dict:
@@ -143,7 +135,7 @@ def main() -> None:
 
     if args.command == "data":
         rows = data_stats(args.split, args.mini, args.data_dir)
-        write_csv(args.results_dir / f"data_{suffix(args)}.csv", rows)
+        tables.write_csv(args.results_dir / f"data_{suffix(args)}.csv", rows)
         total = rows[-1]
         print(
             f"{len(rows) - 1} meetings, {total['seconds'] / 3600:.2f} h, "
@@ -152,7 +144,7 @@ def main() -> None:
 
     elif args.command == "diarization":
         rows = region_errors(args.split, args.mini, args.hyp, args.data_dir)
-        write_csv(args.results_dir / f"regions_{args.hyp.name}_{suffix(args)}.csv", rows)
+        tables.write_csv(args.results_dir / f"regions_{args.hyp.name}_{suffix(args)}.csv", rows)
         total = rows[-1]
         missed = total["missed_detection_overlap"] + total["missed_detection_single"]
         right = sum(r["ref_speakers"] == r["hyp_speakers"] for r in rows[:-1])
@@ -160,7 +152,7 @@ def main() -> None:
         print(f"speaker count right in {right} of {len(rows) - 1} meetings")
 
         rows = turn_errors(args.split, args.mini, args.hyp, args.data_dir)
-        write_csv(args.results_dir / f"turns_{args.hyp.name}_{suffix(args)}.csv", rows)
+        tables.write_csv(args.results_dir / f"turns_{args.hyp.name}_{suffix(args)}.csv", rows)
         for r in rows:
             print(
                 f"{r['turn_length']:>7}  {r['turns']:5d} turns  overlapped {r['overlapped']:5.1f}%  correct {r['correct']:5.1f}%  "

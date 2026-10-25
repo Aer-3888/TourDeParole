@@ -6,7 +6,6 @@
 """
 
 import argparse
-import csv
 import itertools
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -16,7 +15,7 @@ from pyannote.core import Annotation, Segment
 from pyannote.database.util import load_rttm
 from pyannote.metrics.detection import DetectionErrorRate
 
-from tourdeparole import ami
+from tourdeparole import ami, tables
 
 # Silero defaults for minimum speech and silence, faster-whisper's are meant for cutting Whisper chunks
 MIN_SPEECH_MS = 250
@@ -88,14 +87,6 @@ def percentages(errors: dict) -> dict:
     }
 
 
-def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--split", choices=ami.SPLITS, default="test")
@@ -112,7 +103,7 @@ def main() -> None:
 
     if args.tune:
         rows = tune(args.split, args.mini, args.data_dir, args.workers)
-        write_csv(args.results_dir / f"vad_tuning_{suffix}.csv", rows)
+        tables.write_csv(args.results_dir / f"vad_tuning_{suffix}.csv", rows)
         best = min(rows, key=lambda r: r["error"])
         print(f"best: threshold {best['threshold']}, padding {best['pad_ms']} ms, error {best['error']:.2f}%")
         return
@@ -138,7 +129,7 @@ def main() -> None:
         return
     total = {k: sum(r[k] for r in rows) for k in rows[0] if k != "meeting"}
     rows = [{"meeting": r["meeting"]} | percentages(r) for r in rows] + [{"meeting": "TOTAL"} | percentages(total)]
-    write_csv(args.results_dir / f"vad_{args.method}_{suffix}.csv", rows)
+    tables.write_csv(args.results_dir / f"vad_{args.method}_{suffix}.csv", rows)
     print(f"missed {rows[-1]['missed']:.2f}%  false alarm {rows[-1]['false_alarm']:.2f}%")
 
 

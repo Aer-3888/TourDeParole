@@ -2,6 +2,35 @@
 
 Speaker-attributed meeting transcription ("who said what") evaluated on the AMI Meeting Corpus.
 
+Three diarization systems are compared on the AMI test set (16 meetings, 9.06 h, Mix-Headset audio): the pretrained pyannote pipeline, a clustering baseline built from separate parts (Silero VAD, ECAPA-TDNN speaker embeddings, agglomerative clustering), and the same baseline with overlap handling. Every parameter is chosen on the dev set, and the test set is scored once.
+
+| System | DER |
+|--------|-----|
+| pyannote community-1 | 17.05% |
+| Clustering baseline | 30.42% |
+| Clustering baseline with overlap handling | 26.13% |
+
+DER without collar and with overlapped speech scored. Whisper large-v3 transcribes the meetings with 27.57% WER. The other scoring settings and the error analysis are in [Results](#results).
+
+In progress: speaker-attributed transcripts scored with cpWER, and meeting notes written by a local LLM.
+
+## Layout
+
+Each module of `src/tourdeparole/` is a command, `python -m tourdeparole.<module>`. Model outputs go to `outputs/` and scores to `results/`.
+
+| Module | Role |
+|--------|------|
+| `download_ami` | AMI diarization setup, manual annotations and audio |
+| `references` | Speaker-attributed reference transcripts |
+| `transcribe` | Whisper large-v3 transcription with word timestamps |
+| `diarize_pyannote` | Pretrained pyannote diarization |
+| `vad` | Speech detection with Silero VAD |
+| `embed` | ECAPA-TDNN embeddings on sliding windows |
+| `cluster` | Agglomerative clustering of the embeddings into speakers |
+| `overlap` | Overlapped speech detection and second speaker assignment |
+| `der`, `wer` | Scoring |
+| `analysis` | Overlapped speech, speaker counts and errors by turn length |
+
 ## Setup
 
 Requires Python 3.12 and an NVIDIA GPU with CUDA.
@@ -311,3 +340,7 @@ python -m tourdeparole.der --split test --hyp outputs/ecapa-ahc-oracle-reference
 python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-silero-overlap
 python -m tourdeparole.analysis diarization --split test --hyp outputs/ecapa-ahc-oracle-overlap
 ```
+
+## License
+
+The code is released under the MIT license. The AMI Meeting Corpus is distributed under CC BY 4.0 and is not part of this repository.

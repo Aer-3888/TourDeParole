@@ -5,7 +5,6 @@
 """
 
 import argparse
-import csv
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +12,7 @@ from pyannote.core import Annotation, Segment
 from pyannote.metrics.diarization import DiarizationErrorRate
 from scipy.cluster.hierarchy import fcluster, linkage
 
-from tourdeparole import ami
+from tourdeparole import ami, tables
 
 # tuned on dev, see results/ahc_tuning_<vad>_dev.csv
 THRESHOLD = 0.98
@@ -101,12 +100,8 @@ def main() -> None:
 
     if args.tune:
         rows = tune(args.split, args.mini, args.embeddings, args.data_dir)
-        args.results_dir.mkdir(parents=True, exist_ok=True)
         name = f"ahc_tuning_{vad}_{args.split}{'_mini' if args.mini else ''}.csv"
-        with open(args.results_dir / name, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-            writer.writeheader()
-            writer.writerows(rows)
+        tables.write_csv(args.results_dir / name, rows)
         best = min(rows, key=lambda r: r["der"])
         print(f"best: threshold {best['threshold']}, DER {best['der']:.2f}%, speaker count right {best['speaker_count_right']}")
         return

@@ -6,7 +6,6 @@
 """
 
 import argparse
-import csv
 import itertools
 import os
 from collections.abc import Callable
@@ -25,7 +24,7 @@ from pyannote.database.util import load_rttm
 from pyannote.metrics.detection import DetectionPrecisionRecallFMeasure
 from pyannote.metrics.diarization import DiarizationErrorRate
 
-from tourdeparole import ami, cluster
+from tourdeparole import ami, cluster, tables
 
 PIPELINE = "pyannote/speaker-diarization-community-1"
 SCORES_DIR = Path("outputs") / "overlap-scores"
@@ -152,14 +151,6 @@ def tune(split: str, mini: bool, hyp_dir: Path, embeddings_dir: Path, data_dir: 
     return rows
 
 
-def write_csv(path: Path, rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -198,12 +189,12 @@ def main() -> None:
             metric(reference_overlap(uri, args.split, args.data_dir), detected, uem=ami.uem(uri, args.split, args.data_dir))
         precision, recall, _ = metric.compute_metrics()
         row = {"threshold": args.threshold, "precision": round(100 * precision, 2), "recall": round(100 * recall, 2)}
-        write_csv(args.results_dir / f"overlap_detection_{suffix}.csv", [row])
+        tables.write_csv(args.results_dir / f"overlap_detection_{suffix}.csv", [row])
         print(f"overlap detection at {args.threshold}: precision {row['precision']:.2f}%  recall {row['recall']:.2f}%")
 
     elif args.command == "tune":
         rows = tune(args.split, args.mini, args.hyp, args.embeddings, args.data_dir)
-        write_csv(args.results_dir / f"overlap_tuning_{args.hyp.name}_{suffix}.csv", rows)
+        tables.write_csv(args.results_dir / f"overlap_tuning_{args.hyp.name}_{suffix}.csv", rows)
         for r in rows:
             print(f"{r['rule']:>9} {r['threshold']!s:>9}  DER {r['der']:5.2f}%  missed {r['missed_detection']:5.2f}%  "
                   f"false alarm {r['false_alarm']:5.2f}%  confusion {r['confusion']:5.2f}%")

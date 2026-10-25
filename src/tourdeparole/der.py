@@ -4,14 +4,13 @@
 """
 
 import argparse
-import csv
 from pathlib import Path
 
 from pyannote.core import Annotation
 from pyannote.database.util import load_rttm
 from pyannote.metrics.diarization import DiarizationErrorRate
 
-from tourdeparole import ami
+from tourdeparole import ami, tables
 
 # pyannote.metrics collars are centered on each boundary, so 0.5 means 0.25 s on each side
 SETTINGS = {
@@ -55,12 +54,8 @@ def main() -> None:
     args = parser.parse_args()
 
     rows = score(args.split, args.mini, args.hyp, args.data_dir)
-    args.results_dir.mkdir(parents=True, exist_ok=True)
     name = f"der_{args.hyp.name}_{args.split}{'_mini' if args.mini else ''}.csv"
-    with open(args.results_dir / name, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
+    tables.write_csv(args.results_dir / name, rows)
     for r in rows:
         if r["meeting"] == "TOTAL":
             print(
