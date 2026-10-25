@@ -123,6 +123,32 @@ python -m tourdeparole.overlap detect --split test
 
 Scores are cached per meeting in `outputs/overlap-scores/`, and precision and recall against the reference overlapped speech go to `results/overlap_detection_<split>.csv`.
 
+### Second speaker
+
+Inside each detected overlap, every turn of the baseline gets a second speaker. Two rules were compared on dev:
+
+- temporal: the speaker of the closest turn of another speaker, before or after, usually the person who just spoke or is about to
+- embedding: the other cluster whose centroid is closest to the mean embedding of the windows over the overlap
+
+The rule and the detection threshold were chosen together on dev, by DER in the full setting (`results/overlap_tuning_<system>_dev.csv`). The temporal rule is better at every threshold, by 0.5 to 1.4 points, and the best threshold is 0.6 with both speech detections. DER changes by less than 0.1 point between 0.5 and 0.7. The same sweep with the reference overlapped speech gives the best result this step can reach with perfect overlap detection.
+
+| Baseline speech detection | Overlap | DER on dev |
+|---------------------------|---------|------------|
+| Silero | none | 28.05% |
+| Silero | detected, threshold 0.6 | 23.80% |
+| Silero | reference | 20.26% |
+| oracle | none | 20.20% |
+| oracle | detected, threshold 0.6 | 16.00% |
+| oracle | reference | 12.56% |
+
+```
+python -m tourdeparole.overlap tune --split dev --hyp outputs/ecapa-ahc-silero --embeddings outputs/ecapa/vad-silero
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-silero
+python -m tourdeparole.overlap assign --split test --hyp outputs/ecapa-ahc-silero --reference
+```
+
+RTTMs are written to `outputs/<system>-overlap/`, or `outputs/<system>-reference-overlap/` with the reference overlapped speech.
+
 ## Scoring
 
 ### DER

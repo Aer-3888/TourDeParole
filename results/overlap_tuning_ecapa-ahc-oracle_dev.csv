@@ -1,0 +1,16 @@
+rule,threshold,der,missed_detection,false_alarm,confusion
+none,none,20.2,13.45,0.0,6.74
+temporal,0.3,16.78,3.62,3.27,9.89
+temporal,0.4,16.26,4.16,2.35,9.75
+temporal,0.5,16.05,4.78,1.71,9.56
+temporal,0.6,16.0,5.46,1.22,9.33
+temporal,0.7,16.08,6.26,0.78,9.04
+temporal,0.8,16.46,7.39,0.43,8.64
+embedding,0.3,18.16,3.62,3.26,11.29
+embedding,0.4,17.6,4.16,2.35,11.09
+embedding,0.5,17.3,4.78,1.71,10.81
+embedding,0.6,17.17,5.46,1.21,10.5
+embedding,0.7,17.21,6.26,0.77,10.17
+embedding,0.8,17.44,7.39,0.42,9.63
+temporal,reference,12.56,1.22,0.0,11.33
+embedding,reference,14.47,1.22,0.0,13.25
